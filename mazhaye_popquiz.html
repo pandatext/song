@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Mazhaye Thoomazhaye — Pop Quiz</title>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  :root{
+    --ink:#12263a; --brand:#7b3fe4; --brand2:#b14de0; --brand-d:#5a26b0;
+    --ok:#0f9d58; --no:#d93025; --card:#ffffff;
+    --vh:1vh;
+  }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#0c0a15; color:var(--ink);
+    min-height:100%; min-height:calc(var(--vh)*100);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+
+  /* top title bar */
+  .topbar{ flex:0 0 auto; text-align:center; padding:10px 14px calc(10px + env(safe-area-inset-top));
+           background:linear-gradient(135deg,#2a1452,#4a1f8a); color:#fff; }
+  .topbar .badge{ display:inline-block; background:rgba(255,255,255,.16); color:#eadcff; font-size:10.5px;
+                  font-weight:700; padding:4px 11px; border-radius:999px; letter-spacing:.5px; margin-bottom:6px; }
+  .topbar h1{ font-size:clamp(16px,4.6vw,22px); letter-spacing:.2px; }
+  .topbar p{ color:#cdbbe8; font-size:11.5px; margin-top:3px; }
+
+  /* ---------- video stage : fills remaining height ---------- */
+  .stage{ position:relative; flex:1 1 auto; min-height:0; background:#000; overflow:hidden; }
+  .stage video{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000; }
+
+  #chip{ position:absolute; top:10px; left:10px; z-index:5;
+         background:rgba(12,10,21,.74); color:#fff; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+         font-size:11.5px; font-weight:600; padding:6px 11px; border-radius:999px;
+         display:flex; align-items:center; gap:7px; transition:opacity .3s; }
+  #chip .dot{ width:7px;height:7px;border-radius:50%;background:#c79bff;animation:pulse 1.6s infinite; }
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(199,155,255,.75);}70%{box-shadow:0 0 0 8px rgba(199,155,255,0);}100%{box-shadow:0 0 0 0 rgba(199,155,255,0);}}
+
+  #scrim{ position:absolute; inset:0; background:rgba(8,6,16,.42); opacity:0; pointer-events:none;
+          transition:opacity .4s; z-index:15; }
+  #scrim.show{ opacity:1; }
+
+  /* big centre play button (needed for iOS tap-to-start) */
+  #bigplay{ position:absolute; inset:0; z-index:8; display:flex; align-items:center; justify-content:center;
+            background:rgba(0,0,0,.25); border:0; cursor:pointer; }
+  #bigplay svg{ width:74px; height:74px; filter:drop-shadow(0 4px 14px rgba(0,0,0,.5)); }
+  #bigplay.hidden{ display:none; }
+
+  /* ---------- pop-up quiz : half of the video ---------- */
+  .popover{ position:absolute; left:0; right:0; bottom:0; z-index:20; height:52%;
+            transform:translateY(103%); transition:transform .5s cubic-bezier(.22,1,.36,1);
+            display:flex; flex-direction:column; background:var(--card);
+            border-radius:18px 18px 0 0; box-shadow:0 -12px 38px rgba(0,0,0,.4); overflow:hidden; }
+  .popover.show{ transform:translateY(0); }
+  .grab{ width:48px;height:5px;border-radius:99px;background:#d2d9e6;margin:8px auto 2px;flex:0 0 auto; }
+  .pop-head{ display:flex; align-items:center; gap:9px; padding:3px 14px 9px; border-bottom:1px solid #eef1f6; flex:0 0 auto; }
+  .pop-head .q-ico{ width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+                    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex:0 0 auto; }
+  .pop-head h2{ font-size:14px; line-height:1.15; }
+  .pop-head small{ display:block; color:#7b889b; font-weight:500; font-size:10.5px; margin-top:1px; }
+  .pop-head .close{ margin-left:auto; background:#f1f4f9; border:0; width:30px;height:30px;border-radius:50%;
+                    font-size:14px; color:#54627a; cursor:pointer; flex:0 0 auto; }
+  .progress{ flex:0 0 auto; height:4px; background:#eef1f6; }
+  .progress>i{ display:block; height:100%; width:0; background:linear-gradient(90deg,var(--brand),var(--brand2)); transition:width .35s ease; }
+
+  .pop-body{ padding:11px 14px 4px; overflow:hidden; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+  .q-text{ font-size:14.5px; font-weight:700; line-height:1.3; margin-bottom:10px; flex:0 0 auto; }
+  .q-text .tag{ display:inline-block; font-size:10px; font-weight:800; letter-spacing:.4px; color:var(--brand);
+                background:#f0e6ff; padding:3px 8px; border-radius:6px; margin-right:7px; vertical-align:middle; }
+  .opts{ display:flex; flex-direction:row; flex-wrap:nowrap; gap:7px; flex:0 0 auto; }
+  .opt{ display:flex; align-items:center; gap:7px; text-align:left; flex:1 1 0; min-width:0;
+        background:#f7f9fc; border:1.5px solid #e4eaf3; border-radius:10px; padding:9px 9px;
+        font-size:12px; color:var(--ink); cursor:pointer; font-family:inherit; transition:.16s;
+        white-space:nowrap; overflow:hidden; }
+  .opt:active:not(:disabled){ background:#eef4ff; }
+  .opt .key{ flex:0 0 auto; width:21px;height:21px;border-radius:6px;background:#fff;border:1.5px solid #d8e1ee;
+             display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#5c6b80; }
+  .opt .txt{ flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .opt.correct{ background:#e9f8ef; border-color:#93dcb3; }
+  .opt.correct .key{ background:var(--ok); border-color:var(--ok); color:#fff; }
+  .opt.wrong{ background:#fdecea; border-color:#f3b3ac; }
+  .opt.wrong .key{ background:var(--no); border-color:var(--no); color:#fff; }
+  .opt.dim{ opacity:.5; }
+
+  .feedback{ font-size:11.5px; margin-top:9px; padding:8px 10px; border-radius:9px; display:none; line-height:1.4; flex:0 0 auto; }
+  .feedback.good{ display:block; background:#e9f8ef; color:#0b6b3d; }
+  .feedback.bad{ display:block; background:#fdecea; color:#96241b; }
+
+  .pop-foot{ flex:0 0 auto; display:flex; align-items:center; gap:10px;
+             padding:9px 14px calc(11px + env(safe-area-inset-bottom)); border-top:1px solid #eef1f6; }
+  .pop-foot .count{ font-size:11.5px; color:#7b889b; font-weight:600; }
+  .btn{ margin-left:auto; background:linear-gradient(135deg,var(--brand),var(--brand2)); color:#fff; border:0;
+        padding:10px 20px; border-radius:10px; font-weight:700; font-size:13.5px; cursor:pointer;
+        font-family:inherit; box-shadow:0 6px 16px rgba(123,63,228,.28); }
+  .btn:disabled{ opacity:.4; box-shadow:none; }
+  .btn.ghost{ background:#f1f4f9; color:#41526b; box-shadow:none; }
+  .hidden{ display:none !important; }
+
+  #result{ text-align:center; padding:6px 6px 2px; margin:auto 0; }
+  #result .score{ font-size:34px; font-weight:800; color:var(--brand); line-height:1; }
+  #result .lbl{ color:#7b889b; font-size:11.5px; margin-top:3px; }
+  #result h3{ margin:7px 0 4px; font-size:15px; }
+  #result p{ font-size:12px; color:#5c6b80; line-height:1.45; }
+
+  /* very small screens : allow 2x2 so nothing is clipped */
+  @media (max-width:360px){
+    .opts{ flex-wrap:wrap; }
+    .opt{ flex:1 1 44%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="badge">PATTAM POLE · MALAYALAM</div>
+  <h1>Mazhaye Thoomazhaye</h1>
+  <p>Interactive pop quizzes appear at 1:00, 2:30 and 3:30</p>
+</div>
+
+<div class="stage" id="stage">
+  <video id="vid" playsinline webkit-playsinline preload="metadata" controls
+         src="https://storage.googleapis.com/ot-pt/present_files/2026-11-06/anonymous/default/de1eae64125b45a8a45ce06c2e3a5e9b_.mp4?Expires=1796490304&GoogleAccessId=gcs-owner%40oreateai-434511.iam.gserviceaccount.com&Signature=cio0vx7mkDdvncIZ8K1CbSb9UBzXKCGOMxQXM8C1K6Wu9tRWDprc5E72l%2B9wKJTook6TRcRZ3UUum4aKrVcU91mChsaxqYga2t9hBqymc0c74%2BB%2F1EuttV6xdfasJ1%2Bwl42cWg6sFrXFu2XSjxPdCfm%2BvargJHjaq6WpmjzHjqRY%2BIQyQIRxCQqRnU%2BQwZVFvN6HQBrdp2QyPOhErgjhIxjXKOTQYrLQcNAh2R1VPVypG6x9dSI24D0E2LhLx1wyF2v3pkvEOZXaThQBCKhFalBvkoO1m06l4snSXJ08bKCJ7w77W6rYXorb7Kf8uSMabU540MKkrJVTNNy5wRSOWQ%3D%3D"></video>
+
+  <div id="scrim"></div>
+  <div id="chip"><span class="dot"></span><span id="chipTxt">Quiz 1 in 60s</span></div>
+
+  <button id="bigplay" aria-label="Play">
+    <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="rgba(255,255,255,.92)"/><path d="M40 32 L70 50 L40 68 Z" fill="#5a26b0"/></svg>
+  </button>
+
+  <!-- ======= POP QUIZ ======= -->
+  <section class="popover" id="pop" role="dialog" aria-label="Pop quiz">
+    <div class="grab"></div>
+    <div class="pop-head">
+      <div class="q-ico">?</div>
+      <div><h2 id="popTitle">Pop Quiz</h2><small id="subtitle">One question — answer to continue</small></div>
+      <button class="close" id="closeBtn" aria-label="Close">✕</button>
+    </div>
+    <div class="progress"><i id="bar"></i></div>
+
+    <div class="pop-body" id="quizBody">
+      <div class="q-text" id="qText"></div>
+      <div class="opts" id="opts"></div>
+      <div class="feedback" id="fb"></div>
+    </div>
+
+    <div class="pop-body hidden" id="resultWrap">
+      <div id="result">
+        <div class="score" id="scoreNum">0/3</div>
+        <div class="lbl">correct answers</div>
+        <h3 id="resTitle"></h3><p id="resMsg"></p>
+      </div>
+    </div>
+
+    <div class="pop-foot" id="foot">
+      <span class="count" id="countTxt"></span>
+      <button class="btn" id="nextBtn" disabled>Continue</button>
+    </div>
+    <div class="pop-foot hidden" id="footResult">
+      <button class="btn ghost" id="retryBtn">Replay song</button>
+      <button class="btn" id="doneBtn">Close</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* keep real viewport height correct on mobile browsers */
+  function setVH(){ document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px'); }
+  setVH(); window.addEventListener('resize', setVH); window.addEventListener('orientationchange', setVH);
+
+  /* three checkpoints : time (s) -> question */
+  var QUIZ = [
+    { at:60,  q:"Which film is this song from?",
+      opts:["Pattam Pole","Bangalore Days","Premam","Ustad Hotel"], a:0,
+      why:"This song ‘Mazhaye Thoomazhaye’ is from the Malayalam film Pattam Pole." },
+    { at:150, q:"Who composed the music?",
+      opts:["M. Jayachandran","A.R. Rahman","Gopi Sundar","Deepak Dev"], a:0,
+      why:"The music was composed by M. Jayachandran." },
+    { at:210, q:"Who are the singers?",
+      opts:["Haricharan & Mridula","K.J. Yesudas","Vijay & Shreya","Najim & Shweta"], a:0,
+      why:"The song is sung by Haricharan and Mridula Warrier." }
+  ];
+  var KEYS = ["A","B","C","D"];
+
+  var vid=document.getElementById('vid'), pop=document.getElementById('pop'),
+      scrim=document.getElementById('scrim'), bigplay=document.getElementById('bigplay'),
+      body=document.getElementById('quizBody'), resWrap=document.getElementById('resultWrap'),
+      foot=document.getElementById('foot'), footRes=document.getElementById('footResult'),
+      qText=document.getElementById('qText'), optsEl=document.getElementById('opts'),
+      fb=document.getElementById('fb'), bar=document.getElementById('bar'),
+      countTxt=document.getElementById('countTxt'), nextBtn=document.getElementById('nextBtn'),
+      chip=document.getElementById('chip'), chipTxt=document.getElementById('chipTxt'),
+      subtitle=document.getElementById('subtitle'), popTitle=document.getElementById('popTitle');
+
+  var cur=0, score=0, answered=false, done=[false,false,false], open=false;
+
+  function showQ(i){
+    cur=i; answered=false;
+    var item=QUIZ[i];
+    popTitle.textContent='Pop Quiz '+(i+1)+' of '+QUIZ.length;
+    qText.innerHTML='<span class="tag">Q'+(i+1)+'</span>';
+    var s=document.createElement('span'); s.textContent=item.q; qText.appendChild(s);
+    fb.className='feedback'; fb.textContent=''; optsEl.innerHTML='';
+    item.opts.forEach(function(t,k){
+      var b=document.createElement('button'); b.className='opt'; b.type='button';
+      b.innerHTML='<span class="key">'+KEYS[k]+'</span><span class="txt"></span>';
+      b.querySelector('.txt').textContent=t;
+      b.addEventListener('click', function(){ answer(k); });
+      optsEl.appendChild(b);
+    });
+    countTxt.textContent='Checkpoint '+(i+1)+' of '+QUIZ.length;
+    nextBtn.textContent='Continue song';
+    nextBtn.disabled=true;
+    bar.style.width=(i/QUIZ.length*100)+'%';
+    subtitle.textContent='Answer to continue the song';
+  }
+
+  function answer(pick){
+    if(answered) return; answered=true;
+    var c=QUIZ[cur].a, bs=optsEl.querySelectorAll('.opt');
+    bs.forEach(function(b,k){ b.disabled=true;
+      if(k===c) b.classList.add('correct');
+      else if(k===pick) b.classList.add('wrong');
+      else b.classList.add('dim'); });
+    if(pick===c){ score++; fb.className='feedback good'; fb.textContent='✓ Correct! '+QUIZ[cur].why; }
+    else { fb.className='feedback bad'; fb.textContent='✕ Not quite. '+QUIZ[cur].why; }
+    nextBtn.disabled=false;
+    bar.style.width=((cur+1)/QUIZ.length*100)+'%';
+  }
+
+  nextBtn.addEventListener('click', function(){
+    if(!answered) return;
+    done[cur]=true;
+    if(done[0]&&done[1]&&done[2]) finish(); else closeQuiz();
+  });
+
+  function finish(){
+    body.classList.add('hidden'); foot.classList.add('hidden');
+    resWrap.classList.remove('hidden'); footRes.classList.remove('hidden');
+    popTitle.textContent='All done!'; subtitle.textContent='Quiz complete';
+    document.getElementById('scoreNum').textContent=score+'/'+QUIZ.length;
+    var t=document.getElementById('resTitle'), m=document.getElementById('resMsg'), p=score/QUIZ.length;
+    if(p===1){ t.textContent='Perfect! 🌟'; m.textContent='You got every question right. Enjoy the rest of the song!'; }
+    else if(p>=0.6){ t.textContent='Well done! 👏'; m.textContent='Nice listening. The song keeps playing below.'; }
+    else { t.textContent='Good try! 🎵'; m.textContent='Replay the song and catch the details next time.'; }
+    closeQuiz();
+  }
+
+  function openQuiz(i){
+    if(open) return; open=true;
+    showQ(i);
+    body.classList.remove('hidden'); resWrap.classList.add('hidden');
+    foot.classList.remove('hidden'); footRes.classList.add('hidden');
+    pop.classList.add('show'); scrim.classList.add('show'); chip.style.opacity='0';
+    try{ vid.pause(); }catch(e){}
+  }
+  function closeQuiz(){
+    open=false;
+    pop.classList.remove('show'); scrim.classList.remove('show');
+    try{ vid.play().catch(function(){}); }catch(e){}
+  }
+
+  document.getElementById('closeBtn').addEventListener('click', function(){ done[cur]=true; closeQuiz(); });
+  document.getElementById('doneBtn').addEventListener('click', closeQuiz);
+  document.getElementById('retryBtn').addEventListener('click', function(){
+    done=[false,false,false]; score=0;
+    try{ vid.currentTime=0; }catch(e){}
+    footRes.classList.add('hidden'); foot.classList.remove('hidden');
+    body.classList.remove('hidden'); resWrap.classList.add('hidden');
+    closeQuiz();
+  });
+
+  /* big play button -> start playback (user gesture, iOS-safe) */
+  bigplay.addEventListener('click', function(){
+    vid.play().then(function(){ bigplay.classList.add('hidden'); }).catch(function(){ bigplay.classList.add('hidden'); });
+  });
+  vid.addEventListener('play', function(){ bigplay.classList.add('hidden'); chip.style.opacity='1'; });
+
+  /* trigger quizzes by playback time */
+  vid.addEventListener('timeupdate', function(){
+    var t=vid.currentTime;
+    /* next-checkpoint countdown chip */
+    var nxt=-1;
+    for(var i=0;i<QUIZ.length;i++){ if(!done[i] && t<QUIZ[i].at){ nxt=i; break; } }
+    if(nxt>=0 && !open){ chip.style.opacity='1'; chipTxt.textContent='Quiz '+(nxt+1)+' in '+Math.max(0,Math.ceil(QUIZ[nxt].at-t))+'s'; }
+    else if(!open && done[0]&&done[1]&&done[2]){ chip.style.opacity='0'; }
+    /* fire a quiz when its time is reached */
+    for(var j=0;j<QUIZ.length;j++){
+      if(!done[j] && !open && t>=QUIZ[j].at){ openQuiz(j); break; }
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
